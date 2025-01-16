@@ -9,13 +9,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-type notice struct {
-	num        int
-	link       string
-	title      string
-	category   string
-	content    string
-	created_at string
+type Notice struct {
+	num       int
+	link      string
+	title     string
+	category  string
+	content   string
+	createdAt string
 }
 
 var URLs = map[string]string{
@@ -70,6 +70,24 @@ func parseNoticeTable(searchCategory string, page int) []*goquery.Selection {
 	})
 
 	return table
+}
+
+func getNoticeData(notice *goquery.Selection) Notice {
+	link, _ := notice.Find("td.td_subject>div.bo_tit>a").Attr("href")
+	num, _ := strconv.Atoi(strings.TrimSpace(notice.Find("td.td_num2").Text()))
+
+	res, err := http.Get(link)
+	checkErr(err)
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	checkErr(err)
+
+	title := strings.TrimSpace(doc.Find(".bo_v_tit").Text())
+	category := CATEGORY_ALIAS[doc.Find(".bo_v_cate").Text()]
+	content := strings.TrimSpace(strings.ReplaceAll(doc.Find("#bo_v_con").Text(), "\xa0", ""))
+	createdAt := "20" + strings.TrimLeft(strings.Replace(doc.Find(".if_date").Text(), "작성일", "", 1), " ") + ":00"
+
+	return Notice{num: num, link: link, title: title, category: category, content: content, createdAt: createdAt}
 }
 
 func checkErr(err error) {
