@@ -90,6 +90,27 @@ func getNoticeData(notice *goquery.Selection) Notice {
 	return Notice{num: num, link: link, title: title, category: category, content: content, createdAt: createdAt}
 }
 
+func CrawlNoticeFromWeb(searchCategory string, amount int) (noticeList []Notice) {
+	noticeTotalCount := parseNoticeTotalCount()
+	if amount == -1 || amount > noticeTotalCount {
+		amount = noticeTotalCount
+	}
+
+	pages := amount / MAX_NOTICE_SIZE
+
+	noticeTable := make([]*goquery.Selection, 0)
+	for page := 1; page <= pages; page++ {
+		noticeTable = append(noticeTable, parseNoticeTable(searchCategory, page)...)
+	}
+	noticeTable = append(noticeTable, parseNoticeTable(searchCategory, pages+1)[:amount%MAX_NOTICE_SIZE]...)
+
+	for _, notice := range noticeTable {
+		noticeList = append(noticeList, getNoticeData(notice))
+	}
+
+	return
+}
+
 func checkErr(err error) {
 	if err != nil {
 		log.Fatalln(err)
@@ -97,4 +118,8 @@ func checkErr(err error) {
 }
 
 func main() {
+	noticeList := CrawlNoticeFromWeb("전체", 5)
+	for _, notice := range noticeList {
+		log.Println(notice)
+	}
 }
