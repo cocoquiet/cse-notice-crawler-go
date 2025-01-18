@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -74,7 +76,7 @@ func parseNoticeTable(searchCategory string, page int) []*goquery.Selection {
 
 func getNoticeData(notice *goquery.Selection, c chan Notice) {
 	link, _ := notice.Find("td.td_subject>div.bo_tit>a").Attr("href")
-	num, _ := strconv.Atoi(strings.TrimSpace(notice.Find("td.td_num2").Text()))
+	num, _ := strconv.Atoi(strings.Replace(strings.Split(strings.Split(link, "wr_id")[1], "&")[0], "=", "", 1))
 
 	res, err := http.Get(link)
 	checkErr(err)
@@ -124,8 +126,12 @@ func checkErr(err error) {
 }
 
 func main() {
+	fmt.Println(time.Now().UTC(), "- Start crawling")
 	noticeList := CrawlNoticeFromWeb("전체", 50)
+	fmt.Println(time.Now().UTC(), "- Finish crawling")
+
 	for _, notice := range noticeList {
-		log.Println(notice)
+		fmt.Println(notice)
 	}
+	fmt.Println(time.Now().UTC(), "- Finish Sending")
 }
