@@ -72,7 +72,7 @@ func parseNoticeTable(searchCategory string, page int) []*goquery.Selection {
 	return table
 }
 
-func getNoticeData(notice *goquery.Selection) Notice {
+func getNoticeData(notice *goquery.Selection, c chan Notice) {
 	link, _ := notice.Find("td.td_subject>div.bo_tit>a").Attr("href")
 	num, _ := strconv.Atoi(strings.TrimSpace(notice.Find("td.td_num2").Text()))
 
@@ -87,10 +87,12 @@ func getNoticeData(notice *goquery.Selection) Notice {
 	content := strings.TrimSpace(strings.ReplaceAll(doc.Find("#bo_v_con").Text(), "\xa0", ""))
 	createdAt := "20" + strings.TrimLeft(strings.Replace(doc.Find(".if_date").Text(), "작성일", "", 1), " ") + ":00"
 
-	return Notice{num: num, link: link, title: title, category: category, content: content, createdAt: createdAt}
+	c <- Notice{num: num, link: link, title: title, category: category, content: content, createdAt: createdAt}
 }
 
 func CrawlNoticeFromWeb(searchCategory string, amount int) (noticeList []Notice) {
+	c := make(chan Notice)
+
 	noticeTotalCount := parseNoticeTotalCount()
 	if amount == -1 || amount > noticeTotalCount {
 		amount = noticeTotalCount
@@ -105,7 +107,11 @@ func CrawlNoticeFromWeb(searchCategory string, amount int) (noticeList []Notice)
 	noticeTable = append(noticeTable, parseNoticeTable(searchCategory, pages+1)[:amount%MAX_NOTICE_SIZE]...)
 
 	for _, notice := range noticeTable {
-		noticeList = append(noticeList, getNoticeData(notice))
+		go getNoticeData(notice, c)
+	}
+
+	for i := 0; i < amount; i++ {
+		noticeList = append(noticeList, <-c)
 	}
 
 	return
@@ -118,7 +124,7 @@ func checkErr(err error) {
 }
 
 func main() {
-	noticeList := CrawlNoticeFromWeb("전체", 5)
+	noticeList := CrawlNoticeFromWeb("전체", 50)
 	for _, notice := range noticeList {
 		log.Println(notice)
 	}
