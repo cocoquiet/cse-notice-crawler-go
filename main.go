@@ -9,16 +9,8 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"main.go/notice"
 )
-
-type Notice struct {
-	num       int
-	link      string
-	title     string
-	category  string
-	content   string
-	createdAt string
-}
 
 var URLs = map[string]string{
 	"전체":       "https://computer.knu.ac.kr/bbs/board.php?bo_table=sub5_1",
@@ -74,8 +66,8 @@ func parseNoticeTable(searchCategory string, page int) []*goquery.Selection {
 	return table
 }
 
-func getNoticeData(notice *goquery.Selection, c chan Notice) {
-	link, _ := notice.Find("td.td_subject>div.bo_tit>a").Attr("href")
+func getNoticeData(noticeData *goquery.Selection, c chan notice.Notice) {
+	link, _ := noticeData.Find("td.td_subject>div.bo_tit>a").Attr("href")
 	num, _ := strconv.Atoi(strings.Replace(strings.Split(strings.Split(link, "wr_id")[1], "&")[0], "=", "", 1))
 
 	res, err := http.Get(link)
@@ -89,11 +81,11 @@ func getNoticeData(notice *goquery.Selection, c chan Notice) {
 	content := strings.TrimSpace(strings.ReplaceAll(doc.Find("#bo_v_con").Text(), "\xa0", ""))
 	createdAt := "20" + strings.TrimLeft(strings.Replace(doc.Find(".if_date").Text(), "작성일", "", 1), " ") + ":00"
 
-	c <- Notice{num: num, link: link, title: title, category: category, content: content, createdAt: createdAt}
+	c <- *notice.NewNotice(num, link, title, category, content, createdAt)
 }
 
-func CrawlNoticeFromWeb(searchCategory string, amount int) (noticeList []Notice) {
-	c := make(chan Notice)
+func CrawlNoticeFromWeb(searchCategory string, amount int) (noticeList []notice.Notice) {
+	c := make(chan notice.Notice)
 
 	noticeTotalCount := parseNoticeTotalCount()
 	if amount == -1 || amount > noticeTotalCount {
