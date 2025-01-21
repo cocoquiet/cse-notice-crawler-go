@@ -19,3 +19,14 @@ func NewNotice(num int, link, title, category, content, createdAt string) *Notic
 		createdAt: createdAt,
 	}
 }
+
+func ToDict(n *Notice) map[string]interface{} {
+	return map[string]interface{}{
+		"num":       n.num,
+		"link":      n.link,
+		"title":     n.title,
+		"category":  n.category,
+		"content":   n.content,
+		"createdAt": n.createdAt,
+	}
+}

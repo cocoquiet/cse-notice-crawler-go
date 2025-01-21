@@ -122,8 +122,8 @@ func main() {
 	noticeList := CrawlNoticeFromWeb("전체", 50)
 	fmt.Println(time.Now().UTC(), "- Finish crawling")
 
-	for _, notice := range noticeList {
-		fmt.Println(notice)
+	for _, noticeData := range noticeList {
+		fmt.Println(notice.ToDict(&noticeData))
 	}
 	fmt.Println(time.Now().UTC(), "- Finish Sending")
 }
