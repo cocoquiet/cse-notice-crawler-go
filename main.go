@@ -118,12 +118,19 @@ func checkErr(err error) {
 }
 
 func main() {
+	c := make(chan string)
+
 	fmt.Println(time.Now().UTC(), "- Start crawling")
-	noticeList := CrawlNoticeFromWeb("전체", 50)
+	noticeList := CrawlNoticeFromWeb("전체", 500)
 	fmt.Println(time.Now().UTC(), "- Finish crawling")
 
 	for _, noticeData := range noticeList {
-		fmt.Println(notice.ToDict(&noticeData))
+		go notice.ToDict(&noticeData, c)
 	}
+
+	for i := 0; i < 500; i++ {
+		fmt.Println(<-c)
+	}
+
 	fmt.Println(time.Now().UTC(), "- Finish Sending")
 }

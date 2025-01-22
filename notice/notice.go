@@ -22,6 +22,6 @@ func NewNotice(num int, link, title, category, content, createdAt string) *Notic
 	}
 }
 
-func ToDict(n *Notice) string {
-	return fmt.Sprintf("{'num': %d, 'link': '%s', 'title': '%s', 'category': '%s', content: '%s', 'created_at': '%s'}", n.num, n.link, n.title, n.category, n.content, n.createdAt)
+func ToDict(n *Notice, c chan string) {
+	c <- fmt.Sprintf("{'num': %d, 'link': '%s', 'title': '%s', 'category': '%s', content: '%s', 'created_at': '%s'}", n.num, n.link, n.title, n.category, n.content, n.createdAt)
 }
