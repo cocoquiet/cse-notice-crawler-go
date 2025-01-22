@@ -1,5 +1,7 @@
 package notice
 
+import "fmt"
+
 type Notice struct {
 	num       int
 	link      string
@@ -20,13 +22,6 @@ func NewNotice(num int, link, title, category, content, createdAt string) *Notic
 	}
 }
 
-func ToDict(n *Notice) map[string]interface{} {
-	return map[string]interface{}{
-		"num":       n.num,
-		"link":      n.link,
-		"title":     n.title,
-		"category":  n.category,
-		"content":   n.content,
-		"createdAt": n.createdAt,
-	}
+func ToDict(n *Notice) string {
+	return fmt.Sprintf("{'num': %d, 'link': '%s', 'title': '%s', 'category': '%s', content: '%s', 'created_at': '%s'}", n.num, n.link, n.title, n.category, n.content, n.createdAt)
 }
