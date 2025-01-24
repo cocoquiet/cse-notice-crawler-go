@@ -1,18 +1,15 @@
 package crawler
 
 import (
+	"bytes"
 	"log"
 	"net/http"
-)
+	"strconv"
+	"strings"
 
-type notice struct {
-	num        int
-	link       string
-	title      string
-	category   string
-	content    string
-	created_at string
-}
+	"github.com/PuerkitoBio/goquery"
+	"main.go/notice"
+)
 
 var URLs = map[string]string{
 	"전체":       "https://computer.knu.ac.kr/bbs/board.php?bo_table=sub5_1",
@@ -42,14 +39,102 @@ const MAX_NOTICE_SIZE = 15
 func parseNoticeTotalCount() int {
 	res, err := http.Get(URLs["전체"])
 	checkErr(err)
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	checkErr(err)
+
+	total, err := strconv.Atoi(strings.TrimSpace(doc.Find("tbody>tr>td.td_num2").First().Text()))
+	checkErr(err)
+
+	return total
 }
 
-func CrawlNoticeFromWeb(searchCategory string, amount int) []notice {
+func parseNoticeTable(searchCategory string, page int) []*goquery.Selection {
+	res, err := http.Get(URLs[searchCategory] + "&page=" + strconv.Itoa(page))
+	checkErr(err)
 
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	checkErr(err)
+
+	table := make([]*goquery.Selection, 0)
+
+	doc.Find("tbody>tr").Each(func(i int, s *goquery.Selection) {
+		table = append(table, s)
+	})
+
+	return table
 }
 
-func SendNoticeToAPI(url string, noticeList []notice) int {
+func getNoticeData(noticeData *goquery.Selection, c chan notice.Notice) {
+	link, _ := noticeData.Find("td.td_subject>div.bo_tit>a").Attr("href")
+	num, _ := strconv.Atoi(strings.Replace(strings.Split(strings.Split(link, "wr_id")[1], "&")[0], "=", "", 1))
 
+	res, err := http.Get(link)
+	checkErr(err)
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	checkErr(err)
+
+	title := strings.TrimSpace(doc.Find(".bo_v_tit").Text())
+	category := CATEGORY_ALIAS[doc.Find(".bo_v_cate").Text()]
+	content := strings.TrimSpace(strings.ReplaceAll(doc.Find("#bo_v_con").Text(), "\xa0", ""))
+	createdAt := "20" + strings.TrimLeft(strings.Replace(doc.Find(".if_date").Text(), "작성일", "", 1), " ") + ":00"
+
+	c <- *notice.NewNotice(num, link, title, category, content, createdAt)
+}
+
+func CrawlNoticeFromWeb(searchCategory string, amount int) (noticeList []notice.Notice) {
+	c := make(chan notice.Notice)
+
+	noticeTotalCount := parseNoticeTotalCount()
+	if amount == -1 || amount > noticeTotalCount {
+		amount = noticeTotalCount
+	}
+
+	pages := amount / MAX_NOTICE_SIZE
+
+	noticeTable := make([]*goquery.Selection, 0)
+	for page := 1; page <= pages; page++ {
+		noticeTable = append(noticeTable, parseNoticeTable(searchCategory, page)...)
+	}
+	noticeTable = append(noticeTable, parseNoticeTable(searchCategory, pages+1)[:amount%MAX_NOTICE_SIZE]...)
+
+	for _, notice := range noticeTable {
+		go getNoticeData(notice, c)
+	}
+
+	for i := 0; i < amount; i++ {
+		noticeList = append(noticeList, <-c)
+	}
+
+	return
+}
+
+func SendNoticeToAPI(url string, noticeList []notice.Notice) {
+	c := make(chan string)
+	sendList := "{'data': ["
+	client := &http.Client{}
+
+	for _, noticeData := range noticeList {
+		go notice.ToDict(&noticeData, c)
+	}
+
+	for i := 0; i < len(noticeList); i++ {
+		sendList += <-c
+		sendList += ","
+	}
+
+	sendList = strings.TrimRight(sendList, ",")
+	sendList += "]}"
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(sendList)))
+	checkErr(err)
+
+	req.Header.Set("Content-Type", "application/json")
+	res, err := client.Do(req)
+	checkErr(err)
+
+	defer res.Body.Close()
 }
 
 func checkErr(err error) {
